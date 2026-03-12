@@ -136,6 +136,23 @@ class ClaudeDirectAPIProvider(ClaudeCLIProvider):
         env['ANTHROPIC_API_KEY'] = self.api_key
 
 
+class ClaudeBedrockProvider(ClaudeCLIProvider):
+    """Claude via AWS Bedrock プロバイダー (CLI経由)"""
+
+    def __init__(self, region: str, model: str):
+        super().__init__(model)
+        self.region = region
+        self._debug_print(f"Initialized with region={region}, model={model}")
+
+    def get_provider_name(self) -> str:
+        return "Claude (AWS Bedrock via CLI)"
+
+    def _configure_environment(self, env: Dict[str, str]) -> None:
+        """Bedrock用の環境変数を設定"""
+        env['CLAUDE_CODE_USE_BEDROCK'] = '1'
+        env['AWS_DEFAULT_REGION'] = self.region
+
+
 class GeminiCLIProvider(AIProvider):
     """Gemini CLI共通基底クラス"""
 
@@ -239,18 +256,20 @@ def create_ai_provider(
     vertex_project_id: Optional[str] = None,
     vertex_region: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
+    aws_region: Optional[str] = None,
 ) -> AIProvider:
     """
     AIプロバイダのインスタンスを作成
 
     Args:
-        provider_type: プロバイダータイプ (claude-vertex/claude-direct/gemini-vertex/gemini-direct)
+        provider_type: プロバイダータイプ (claude-vertex/claude-direct/claude-bedrock/gemini-vertex/gemini-direct)
         anthropic_api_key: Anthropic API キー (Claude Direct API用)
         vertex_project_id: Vertex AI プロジェクトID
         vertex_region: Vertex AI リージョン
         gemini_api_key: Gemini Direct API キー
         model: 使用するモデル名
+        aws_region: AWS リージョン (Claude Bedrock用)
 
     Returns:
         AIProvider インスタンス
@@ -289,6 +308,11 @@ def create_ai_provider(
             vertex_region,
             model
         )
+
+    elif provider_type == "claude-bedrock":
+        if not model:
+            raise ValueError("Model name is required for claude-bedrock provider")
+        return ClaudeBedrockProvider(aws_region or "us-east-1", model)
 
     elif provider_type == "gemini-direct":
         if not gemini_api_key:
